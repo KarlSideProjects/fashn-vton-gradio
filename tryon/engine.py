@@ -43,9 +43,11 @@ class Engine:
         self._pipeline = pipeline
         return pipeline
 
-    def generate(self, person, garment, category, photo_type, steps, seed):
+    def generate(self, person, garment, category, photo_type, steps, seed, preserve_hands=True):
         person, garment = prepare_image(person), prepare_image(garment)
         options = validate_options(category, photo_type, steps, seed)
+        if not isinstance(preserve_hands, bool):
+            raise ValueError('手部保留選項必須是布林值。')
         with self._lock:
             start = time.perf_counter()
             cold_start = self._pipeline is None
@@ -61,14 +63,19 @@ class Engine:
                 from fashn_human_parser import LABELS_TO_IDS
                 if LABELS_TO_IDS.get('hands') != 13:
                     raise RuntimeError('手部分割標籤與預期不同，停止處理。')
-                source_labels = pipeline.hp_model.predict(person)
+                source_labels = pipeline.hp_model.predict(person) if preserve_hands else None
                 attempts = []
-                for attempt in range(2):
+                for attempt in range(2 if preserve_hands else 1):
                     actual_options = {**options, 'seed': (options['seed'] + attempt) % 2**32}
                     result = pipeline(person_image=person, garment_image=garment, **actual_options)
                     if len(result.images) != 1:
                         raise RuntimeError('模型未回傳預期的一張圖片，結果未儲存。')
                     candidate = result.images[0]
+                    if not preserve_hands:
+                        repaired = candidate
+                        hand_report = {'status': 'not_applied', 'anatomical_correctness': 'not_verified'}
+                        attempts.append({'seed': actual_options['seed'], 'status': 'needs_review'})
+                        break
                     output_labels = pipeline.hp_model.predict(candidate)
                     aligned_labels = np.asarray(Image.fromarray(source_labels.astype('uint8')).resize(
                         candidate.size, Image.Resampling.NEAREST))
@@ -94,6 +101,7 @@ class Engine:
                 'options': actual_options,
                 'requested_options': options,
                 'hand_repair': hand_report,
+                'preserve_hands': preserve_hands,
                 'attempts': attempts,
                 'timing_scope': 'source parsing + candidate generation(s) + hand parsing and compositing',
                 'person_pixel_sha256': image_digest(person),
@@ -114,3 +122,16 @@ class Engine:
                 metadata['weights_manifest'] = json.loads(manifest.read_text(encoding='utf-8'))
             png, record = save_result(OUTPUTS, repaired, metadata)
             return str(png), str(record), metadata
+
+    def repair(self, editor, prompt, strength, seed, negative_prompt='', method='sdxl'):
+        from .repair import prepare_repair, run_repair
+        prepared = prepare_repair(editor, prompt, strength, seed, negative_prompt, method)
+        with self._lock:
+            # The repair worker owns its CUDA context; do not keep FASHN resident too.
+            if method == 'sdxl' and self._pipeline is not None:
+                import gc
+                import torch
+                self._pipeline = None
+                gc.collect()
+                torch.cuda.empty_cache()
+            return run_repair(*prepared)

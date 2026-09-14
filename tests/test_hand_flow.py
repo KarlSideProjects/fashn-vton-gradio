@@ -11,7 +11,7 @@ from tryon.engine import Engine
 from tryon.hands import HandRepairError
 
 class FlowTests(unittest.TestCase):
-    def run_flow(self, bad_count):
+    def run_flow(self, bad_count, preserve_hands=True):
         mask = np.zeros((100,100), dtype=np.uint8); mask[30:60,40:60]=13
         calls=[]
         def predict(image):
@@ -33,7 +33,14 @@ class FlowTests(unittest.TestCase):
                  patch.object(Engine,'_load',return_value=Pipeline()), \
                  patch('tryon.engine.OUTPUTS',output), patch('tryon.engine.WEIGHTS',Path(directory)):
                 image=Image.new('RGB',(100,100),'red')
-                if bad_count==2:
+                if not preserve_hands:
+                    png,record,data=Engine().generate(image,image,'tops','model',30,42,False)
+                    self.assertEqual(data['hand_repair']['status'], 'not_applied')
+                    self.assertEqual(data['attempts'][0]['status'], 'needs_review')
+                    self.assertFalse(data['preserve_hands'])
+                    with Image.open(png) as result:
+                        self.assertEqual(result.getpixel((50,45)), (0,0,255))
+                elif bad_count==2:
                     with self.assertRaises(HandRepairError):
                         Engine().generate(image,image,'tops','model',30,42)
                     self.assertFalse(output.exists())
@@ -44,8 +51,9 @@ class FlowTests(unittest.TestCase):
                     self.assertEqual(json.loads(Path(record).read_text())['hand_repair']['status'],'restored')
                     with Image.open(png) as result:
                         self.assertEqual(result.getpixel((50,45)), (255,0,0))
-        self.assertEqual(calls,[42,43] if bad_count else [42])
+        self.assertEqual(calls,[42,43] if bad_count and preserve_hands else [42])
 
     def test_first_candidate_success(self): self.run_flow(0)
     def test_second_candidate_success_records_actual_seed(self): self.run_flow(1)
     def test_exhaustion_writes_no_output(self): self.run_flow(2)
+    def test_explicit_manual_mode_returns_unverified_candidate(self): self.run_flow(2, False)

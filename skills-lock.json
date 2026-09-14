@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "segment-anything-model": {
+      "source": "orchestra-research/ai-research-skills",
+      "sourceType": "github",
+      "skillPath": "18-multimodal/segment-anything/SKILL.md",
+      "computedHash": "1937f78c5b4ba376c447d51880780f6cb51784f90b8600696b78ef909ccf24d6"
+    }
+  }
+}

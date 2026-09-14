@@ -1,5 +1,6 @@
 .venv/
 .venv-ui/
+.venv-repair/
 __pycache__/
 *.pyc
 .cache/
