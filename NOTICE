@@ -1,0 +1,12 @@
+Local FASHN VTON + Gradio wrapper, 2026.
+
+This application uses FASHN VTON v1.5 by FASHN AI.
+Upstream: https://github.com/fashn-AI/fashn-vton-1.5
+Revision: 7c0f10af3f91ad4048fe9729c470a13ef905d25a
+Upstream copyright: Copyright 2025 FASHN AI
+Upstream license: Apache License 2.0 (included in LICENSE).
+
+examples/model.webp and examples/garment.webp are copied unmodified from
+the upstream repository's examples/data at that revision.
+This wrapper is independent and is not endorsed by FASHN AI.
+Third-party packages and model weights retain their respective licenses.

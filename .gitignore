@@ -1,0 +1,12 @@
+.venv/
+.venv-ui/
+__pycache__/
+*.pyc
+.cache/
+.env
+weights/
+outputs/
+vendor/
+*.log
+*.egg-info/
+.ruff_cache/
