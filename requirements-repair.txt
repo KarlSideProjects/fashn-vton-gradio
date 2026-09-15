@@ -1,8 +1,0 @@
-torch==2.8.0
-torchvision==0.23.0
-diffusers==0.35.1
-accelerate==1.10.1
-transformers==4.57.1
-huggingface-hub==0.36.2
-Pillow==11.3.0
-numpy==2.2.6

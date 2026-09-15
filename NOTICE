@@ -1,4 +1,19 @@
-Local FASHN VTON + Gradio wrapper, 2026.
+Local adaptation of hemil124/virtual-tryon, 2026.
+
+app.py is adapted from:
+https://huggingface.co/spaces/hemil124/virtual-tryon
+Space revision: 29f4ad42a29af63c71a7bc9e53ea7cd5342694c1
+Source app.py: https://huggingface.co/spaces/hemil124/virtual-tryon/blob/29f4ad42a29af63c71a7bc9e53ea7cd5342694c1/app.py
+The Space includes Apache License 2.0 (included in LICENSE).
+Local modifications: project-local offline cache and explicit weight setup,
+loopback launch/port options, input/resource limits, existing WEBP examples,
+and corrected timing/quality hints plus omission of unused imports.
+CPU single-pass inference is retained. The UI uses Gradio 6.13.0 and adds a
+CPU/CUDA selector with serialized switching and single-pipeline caching.
+tryon/sampling.py adapts the upstream Euler/CFG sampler at the FASHN revision
+below; its sole numerical change is to generate initial noise on CPU in
+FP32 before casting to the GPU's inference dtype. Model weights are unchanged.
+The former local hand/face repair, inpainting and comparison code is removed.
 
 This application uses FASHN VTON v1.5 by FASHN AI.
 Upstream: https://github.com/fashn-AI/fashn-vton-1.5
@@ -8,5 +23,5 @@ Upstream license: Apache License 2.0 (included in LICENSE).
 
 examples/model.webp and examples/garment.webp are copied unmodified from
 the upstream repository's examples/data at that revision.
-This wrapper is independent and is not endorsed by FASHN AI.
+This application is independent and is not endorsed by hemil124 or FASHN AI.
 Third-party packages and model weights retain their respective licenses.

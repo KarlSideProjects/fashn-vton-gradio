@@ -3,9 +3,7 @@ import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-UPSTREAM_COMMIT = '7c0f10af3f91ad4048fe9729c470a13ef905d25a'
 WEIGHTS = ROOT / 'weights'
-OUTPUTS = ROOT / 'outputs'
 
 
 def configure():

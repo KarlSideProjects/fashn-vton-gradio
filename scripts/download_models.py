@@ -35,7 +35,7 @@ def main():
     # Official parser API caches its own weights in the project-local HF_HOME.
     from fashn_human_parser import FashnHumanParser
     FashnHumanParser(device='cpu')
-    # Record snapshots used by the parser; GPU initialization is tested separately.
+    # Record snapshots used by the parser; model inference is tested separately.
     parser_cache_files = {}
     for path in (ROOT / '.cache/huggingface/hub').glob('models--*/snapshots/*/**/*'):
         if path.is_file():
@@ -44,7 +44,7 @@ def main():
     temporary = WEIGHTS / 'manifest.json.tmp'
     temporary.write_text(json.dumps(data, indent=2), encoding='utf-8')
     temporary.replace(manifest_path)
-    print('Downloaded and checksummed weights. GPU inference has not been tested by this command.')
+    print('Downloaded and checksummed weights. Inference has not been tested by this command.')
 
 
 if __name__ == '__main__':

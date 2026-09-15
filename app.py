@@ -1,135 +1,314 @@
-"""Traditional Chinese Gradio interface for local virtual try-on."""
-import argparse
-import logging
+"""Adapted from hemil124/virtual-tryon, Apache-2.0.
+Source commit: 29f4ad42a29af63c71a7bc9e53ea7cd5342694c1 (see NOTICE).
+Local changes: offline cache/setup, input limits, local examples and launch options.
+CPU retains the Space's sampling; GPU uses CPU-initialized noise (see NOTICE).
+"""
 import os
+import argparse
+import gc
+import math
+import threading
+import time
+from typing import Optional
 
-from tryon.config import ROOT, configure
+from tryon.config import configure
 
 configure()
-os.environ['HF_HUB_OFFLINE'] = '1'  # Download explicitly via setup, never during a request.
+os.environ["HF_HUB_OFFLINE"] = "1"
 
 import gradio as gr
+import numpy as np
+from PIL import Image
 
-from tryon.engine import Engine
+# ─────────────────────────── CONFIG ──────────────────────────── #
 
-engine = Engine()
-LOG = logging.getLogger(__name__)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+WEIGHTS_DIR = os.path.join(SCRIPT_DIR, "weights")
+EXAMPLES_DIR = os.path.join(SCRIPT_DIR, "examples")
+
+CATEGORIES = ["tops", "bottoms", "one-pieces"]
+GARMENT_PHOTO_TYPES = ["model", "flat-lay"]
+
+# ──────────────────────── PIPELINE LOADER ────────────────────── #
+
+_pipeline_lock = threading.RLock()
+_pipeline: Optional[object] = None
+_pipeline_device = None
 
 
-def generate(person, garment, category, photo_type, steps, seed, preserve_hands=True):
-    # Clear the previous result before running, including when this request fails.
-    yield None, None, None, ('試穿與手部細節處理中；必要時會自動重試一次，請稍候。' if preserve_hands
-                             else '待修補候選生成中；此次略過原手保留，完成後需人工檢查。')
+def get_pipeline(device='cpu'):
+    """Keep one pipeline; serialize switching with inference via the same lock."""
+    global _pipeline, _pipeline_device
+    if device not in ('cpu', 'cuda'):
+        raise ValueError('請選擇 CPU 或 GPU。')
+    with _pipeline_lock:
+        if device == 'cuda':
+            import torch
+            if not torch.cuda.is_available():
+                raise RuntimeError('GPU 不可用；請選 CPU，或執行 bash scripts/setup.sh cuda 安裝 CUDA 版。')
+        if _pipeline is not None and _pipeline_device != device:
+            previous_device = _pipeline_device
+            _pipeline = None
+            _pipeline_device = None
+            gc.collect()
+            if previous_device == 'cuda':
+                import torch
+                torch.cuda.empty_cache()
+        if _pipeline is None:
+            required = ["model.safetensors", "dwpose/yolox_l.onnx", "dwpose/dw-ll_ucoco_384.onnx"]
+            if any(not os.path.isfile(os.path.join(WEIGHTS_DIR, name)) for name in required):
+                raise RuntimeError("Missing weights. Run bash scripts/setup.sh first.")
+            from fashn_vton import TryOnPipeline
+            if device == 'cuda':
+                import onnxruntime as ort
+                if hasattr(ort, 'preload_dlls'):
+                    ort.preload_dlls()
+                from tryon.sampling import CpuNoisePipeline
+                factory = CpuNoisePipeline
+            else:
+                factory = TryOnPipeline
+            print(f"Loading pipeline on {device}...")
+            _pipeline = factory(weights_dir=WEIGHTS_DIR, device=device)
+            _pipeline_device = device
+            print("Pipeline ready!")
+    return _pipeline
+
+
+# ─────────────────────────── INFERENCE ───────────────────────── #
+
+
+def try_on(
+    person_image,
+    garment_image,
+    category: str,
+    garment_photo_type: str,
+    num_timesteps: int,
+    guidance_scale: float,
+    seed: int,
+    segmentation_free: bool,
+    execution_device: str = 'cpu',
+):
+    """Run virtual try-on inference."""
+    if person_image is None:
+        raise gr.Error("Please upload a person image.")
+    if garment_image is None:
+        raise gr.Error("Please upload a garment image.")
+    if execution_device not in ('cpu', 'cuda'):
+        raise gr.Error('請選擇 CPU 或 GPU。')
+
+    # Normalise seed
+    if seed is None or (isinstance(seed, (int, float)) and seed < 0):
+        seed = 42
+    if not isinstance(seed, (int, float)) or isinstance(seed, bool) or not math.isfinite(seed) or not 0 <= seed <= 2**32 - 1:
+        raise gr.Error("Seed must be a finite number between 0 and 4294967295.")
+    seed = int(seed)
+    if category not in CATEGORIES or garment_photo_type not in GARMENT_PHOTO_TYPES:
+        raise gr.Error("Invalid category or photo type.")
+    if not isinstance(num_timesteps, (int, float)) or isinstance(num_timesteps, bool) or not 10 <= num_timesteps <= 50 or int(num_timesteps) != num_timesteps:
+        raise gr.Error("Sampling Steps must be an integer between 10 and 50.")
+    if not isinstance(guidance_scale, (int, float)) or isinstance(guidance_scale, bool) or not 1 <= guidance_scale <= 3:
+        raise gr.Error("Guidance Scale must be between 1 and 3.")
+    if not isinstance(segmentation_free, bool):
+        raise gr.Error("Segmentation-Free must be a boolean.")
+
+    # Ensure PIL RGB
+    def to_pil(x):
+        if isinstance(x, np.ndarray):
+            x = Image.fromarray(x)
+        if isinstance(x, Image.Image):
+            return x.convert("RGB")
+        return Image.open(x).convert("RGB")
+
+    person_img = to_pil(person_image)
+    garment_img = to_pil(garment_image)
+
+    if any(min(im.size) < 64 or im.width * im.height > 20_000_000 for im in (person_img, garment_img)):
+        raise gr.Error("Images must be at least 64 pixels per side and at most 20 megapixels.")
+
     try:
-        png, record, metadata = engine.generate(person, garment, category, photo_type, steps, seed, preserve_hands)
-        message = (
-            f"完成｜試穿與細節處理 {metadata['inference_seconds']:.1f} 秒｜"
-            f"模型載入/準備 {metadata['load_seconds']:.1f} 秒\n"
-            f"PyTorch 顯存峰值 {metadata['torch_peak_allocated_gib']:.2f} GiB"
-            '（不含 ONNX 與其他程式）'
-            f"\n自動處理 {len(metadata['attempts'])} 次；"
-            + ('已合成原圖手部，仍請留意邊緣與遮擋效果。' if preserve_hands
-               else '待人工檢查／局部修補：未做手部保留，不代表手部正確。')
-        )
-        yield png, png, record, message
-    except Exception as exc:
-        LOG.exception('Try-on request failed')
-        yield None, None, None, f'未生成：{type(exc).__name__}: {exc}'
+        with _pipeline_lock:
+            started = time.perf_counter()
+            result = get_pipeline(execution_device)(
+                person_image=person_img,
+                garment_image=garment_img,
+                category=category,
+                garment_photo_type=garment_photo_type,
+                num_samples=1,
+                num_timesteps=int(num_timesteps),
+                guidance_scale=guidance_scale,
+                seed=seed,
+                segmentation_free=segmentation_free,
+            )
+            elapsed = time.perf_counter() - started
+        mode = 'GPU / CUDA' if execution_device == 'cuda' else 'CPU / FP32'
+        return result.images[0], f"✅ Done! {mode}｜{elapsed:.1f} 秒（含載入）｜CPU FP32 初始噪聲｜無修補"
+    except Exception as e:
+        return None, f"❌ Error: {e}"
 
 
-def load_repair_image(value):
-    if value is None:
-        raise gr.Error('尚無圖片可載入。')
-    return {'background': value, 'layers': [], 'composite': value}
+# ─────────────────────────── GRADIO UI ───────────────────────── #
 
+CUSTOM_CSS = """
+body { font-family: 'Inter', sans-serif; }
 
-def repair(editor, prompt, strength, seed, negative_prompt='', method='sdxl'):
-    yield None, None, None, '局部修補中；原圖不變，完成後請比較並決定是否使用。'
-    try:
-        png, record, metadata = engine.repair(editor, prompt, strength, seed, negative_prompt, method)
-        yield png, png, record, (
-            f"待人工驗收｜共 {metadata['total_seconds']:.1f} 秒｜選區外像素差：0。"
-            '未自動判定修補品質；不滿意可調整遮罩重試，原圖仍在左側。')
-    except Exception as exc:
-        LOG.exception('Local repair failed')
-        yield None, None, None, f'未修補：{exc}'
+.contain img {
+    object-fit: contain !important;
+    max-height: 520px !important;
+}
 
+#run-btn {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%) !important;
+    border: none !important;
+    color: white !important;
+    font-size: 1.1rem !important;
+    font-weight: 600 !important;
+    padding: 0.75rem !important;
+    border-radius: 12px !important;
+    transition: opacity 0.2s;
+}
+#run-btn:hover { opacity: 0.85; }
 
-def build_app():
-    with gr.Blocks(title='本地 AI 試衣間', analytics_enabled=False,
-                   theme=gr.themes.Soft(primary_hue='teal'),
-                   delete_cache=(3600, 86400)) as demo:
-        gr.Markdown('# 本地 AI 試衣間\n上傳人物與衣服照片，看看換裝後的樣子。')
-        gr.Markdown('照片在本機處理。生成結果用於穿搭預覽，不能判定實際尺寸與合身程度。')
-        with gr.Row():
-            person = gr.Image(label='① 人物照片', type='pil', image_mode='RGBA', sources=['upload'], height=400)
-            garment = gr.Image(label='② 衣服商品照片', type='pil', image_mode='RGBA', sources=['upload'], height=400)
-            result = gr.Image(label='③ 試穿結果', interactive=False, height=400)
-        with gr.Row():
-            category = gr.Dropdown([('上衣', 'tops'), ('下身', 'bottoms'), ('連身衣', 'one-pieces')],
-                                   value='tops', label='要更換的衣物')
-            photo_type = gr.Radio([('模特兒穿著', 'model'), ('平拍商品', 'flat-lay')],
-                                  value='model', label='商品照片類型')
-        with gr.Accordion('生成設定', open=False):
-            preserve_hands = gr.Checkbox(value=True,
-                label='自動保留原手（若被拒絕，可取消勾選生成待修補候選）')
-            steps = gr.Slider(20, 50, value=30, step=1, label='生成步數（越多越慢）')
-            seed = gr.Number(value=42, precision=0, label='Seed（固定值方便比較）',
-                             minimum=0, maximum=2**32 - 1)
-        button = gr.Button('開始試穿', variant='primary')
-        status = gr.Textbox(label='狀態', value='等待上傳；第一次生成會載入模型。', interactive=False)
-        with gr.Row():
-            download = gr.File(label='下載試穿圖片')
-            report = gr.File(label='下載本次生成紀錄')
-        gr.Examples(
-            examples=[[str(ROOT / 'examples/model.webp'), str(ROOT / 'examples/garment.webp'), 'tops', 'model']],
-            inputs=[person, garment, category, photo_type], cache_examples=False,
-            label='先試試官方範例（人物＋模特兒商品照）',
-        )
-        gr.Markdown('一次處理一張，其餘請求排隊。結果存於 outputs；上傳暫存最長保留約 24 小時後定期清理。')
-        button.click(generate, [person, garment, category, photo_type, steps, seed, preserve_hands],
-                     [result, download, report, status], concurrency_limit=1,
-                     concurrency_id='gpu', api_name='try_on')
-        gr.Markdown('## 局部修補（實驗性）\n生成成功後會自動載入試穿結果，也可自行上傳圖片，用白色筆刷塗選要重畫的區域。'
-                    '僅修改塗選範圍，可修手、袖口或其他局部；不保證解剖或文字正確。')
-        load = gr.Button('將目前試穿結果載入修補區')
-        with gr.Row():
-            editor = gr.ImageEditor(label='修補前／白色筆刷選區', type='pil', image_mode='RGBA',
-                sources=['upload'], transforms=(), format='png', height=500,
-                brush=gr.Brush(colors=['#ffffff'], default_color='#ffffff', color_mode='fixed'))
-            repaired = gr.Image(label='修補後（待驗收）', type='pil', format='png', interactive=False, height=500)
-        repair_method = gr.Radio([('SDXL 局部重繪（產生新內容）', 'sdxl'),
-                                 ('紋理補洞（小污點；不重建手指）', 'texture')],
-                                value='sdxl', label='修補方式')
-        gr.Markdown('紋理補洞只延伸周圍像素，不使用提示詞、強度或 Seed；不適合大片選區或重建結構。')
-        prompt = gr.Textbox(label='希望選區變成什麼樣子（建議英文）',
-                            placeholder='例如：a natural fabric cuff, matching the blue sleeve', max_lines=4)
-        negative_prompt = gr.Textbox(label='避免出現的內容（選填，建議英文）',
-                                      placeholder='例如：text, logo, pink stain', max_lines=3)
-        with gr.Row():
-            strength = gr.Slider(0.1, 0.99, value=0.99, step=0.01, label='重繪強度（高值改動較多）')
-            repair_seed = gr.Number(value=42, precision=0, minimum=0, maximum=2**32-1, label='修補 Seed')
-        fix = gr.Button('只重繪塗選區域', variant='primary')
-        repair_status = gr.Textbox(label='修補狀態', interactive=False)
-        with gr.Row():
-            repair_download = gr.File(label='下載修補圖片（人工確認後使用）')
-            repair_report = gr.File(label='下載修補紀錄')
-        reuse = gr.Button('採用修補後圖片，繼續選區修補')
-        gr.Markdown('不滿意可直接重試或重新載入試穿結果。修前圖、遮罩與紀錄存於 outputs/repairs，'
-                    '直到自行刪除；不會上傳雲端。修補會釋放試穿模型，下次試穿需重新載入。')
-        load.click(load_repair_image, result, editor, api_name=False)
-        result.change(lambda value: load_repair_image(value) if value is not None else gr.skip(),
-                      result, editor, queue=False, api_name=False)
-        reuse.click(load_repair_image, repaired, editor, api_name=False)
-        fix.click(repair, [editor, prompt, strength, repair_seed, negative_prompt, repair_method],
-                  [repaired, repair_download, repair_report, repair_status],
-                  concurrency_limit=1, concurrency_id='gpu', api_name='local_repair')
-    return demo.queue(max_size=8, default_concurrency_limit=1)
+.status-box textarea {
+    font-size: 0.9rem !important;
+    color: #a3e635 !important;
+    background: #1e1e2e !important;
+    border-radius: 8px !important;
+}
 
+.gr-accordion { border-radius: 10px !important; }
+"""
 
-if __name__ == '__main__':
+BANNER_MD = """
+# 本機 AI 試衣間
+上傳人物與衣服照片，選擇 **GPU 或 CPU**，直接生成試穿結果。
+GPU 較快；CPU 可能需要二十多分鐘。兩者都使用 CPU 初始噪聲，但不保證結果完全相同。
+"""
+
+TIPS_HTML = """
+<div style="display: flex; justify-content: center; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 20px; font-size: 0.95rem; color: #a1a1aa;">
+    <div style="font-weight: 600; color: #e4e4e7;">💡 Tips for best results:</div>
+    <div>👤 Single person, clearly visible</div>
+    <div style="color: #52525b;">|</div>
+    <div>👕 Match category to garment type</div>
+    <div style="color: #52525b;">|</div>
+    <div>📸 Use "flat-lay" for product shots</div>
+    <div style="color: #52525b;">|</div>
+    <div>📐 2:3 aspect ratio optimal</div>
+</div>
+"""
+
+person_example = os.path.join(EXAMPLES_DIR, "model.webp")
+garment_example = os.path.join(EXAMPLES_DIR, "garment.webp")
+
+with gr.Blocks(title="FASHN VTON — Virtual Try-On",
+               analytics_enabled=False, delete_cache=(3600, 86400)) as demo:
+
+    gr.Markdown(BANNER_MD)
+    gr.HTML(TIPS_HTML)
+
+    with gr.Row(equal_height=False):
+
+        # ── Column 1 : Person ──────────────────────────────────
+        with gr.Column(scale=1):
+            person_in = gr.Image(
+                label="Person Image",
+                type="pil",
+                sources=["upload", "clipboard"],
+                elem_classes=["contain"],
+            )
+            if os.path.exists(person_example):
+                gr.Examples(
+                    examples=[[person_example]],
+                    inputs=[person_in],
+                    label="Person Example",
+                )
+
+        # ── Column 2 : Garment ─────────────────────────────────
+        with gr.Column(scale=1):
+            garment_in = gr.Image(
+                label="Garment Image",
+                type="pil",
+                sources=["upload", "clipboard"],
+                elem_classes=["contain"],
+            )
+            with gr.Row():
+                category = gr.Dropdown(
+                    choices=CATEGORIES,
+                    value="tops",
+                    label="Category",
+                )
+                garment_photo_type = gr.Dropdown(
+                    choices=GARMENT_PHOTO_TYPES,
+                    value="model",
+                    label="Photo Type",
+                )
+            if os.path.exists(garment_example):
+                gr.Examples(
+                    examples=[[garment_example]],
+                    inputs=[garment_in],
+                    label="Garment Example",
+                )
+
+        # ── Column 3 : Result ──────────────────────────────────
+        with gr.Column(scale=1):
+            result_img = gr.Image(
+                label="Try-On Result",
+                type="pil",
+                interactive=False,
+                elem_classes=["contain"],
+            )
+            status = gr.Textbox(
+                value="Ready",
+                label="Status",
+                interactive=False,
+                elem_classes=["status-box"],
+            )
+            execution_device = gr.Radio(
+                choices=[('GPU（NVIDIA CUDA）', 'cuda'), ('CPU（原 Space 模式，較慢）', 'cpu')],
+                value='cuda', label='推論裝置',
+                info='切換後於下次生成載入；只保留一個模型，不自動回退或重試。',
+            )
+            run_btn = gr.Button("👗 Try On", variant="primary", elem_id="run-btn")
+
+            with gr.Accordion("⚙️ Advanced Settings", open=False):
+                num_timesteps = gr.Slider(
+                    minimum=10, maximum=50, value=30, step=5,
+                    label="Sampling Steps",
+                    info="More steps are slower, not a guarantee of better quality. Default: 30.",
+                )
+                guidance_scale = gr.Slider(
+                    minimum=1.0, maximum=3.0, value=1.5, step=0.1,
+                    label="Guidance Scale",
+                    info="How closely to follow the garment details. 1.5 recommended.",
+                )
+                seed = gr.Number(
+                    value=42, label="Seed", precision=0,
+                    info="Change seed to get a different variation of the result.",
+                )
+                segmentation_free = gr.Checkbox(
+                    value=True,
+                    label="Segmentation-Free (Recommended)",
+                    info="Preserves body features and allows unconstrained garment volume.",
+                )
+
+    # ── Event ──────────────────────────────────────────────────
+    run_btn.click(
+        fn=try_on,
+        inputs=[
+            person_in, garment_in,
+            category, garment_photo_type,
+            num_timesteps, guidance_scale,
+            seed, segmentation_free, execution_device,
+        ],
+        outputs=[result_img, status],
+    )
+
+demo.queue(default_concurrency_limit=1, max_size=10)
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--port', type=int, default=7860)
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=7860)
     args = parser.parse_args()
-    build_app().launch(server_name='127.0.0.1', server_port=args.port, share=False,
-                       inbrowser=False, max_file_size='20mb')
+    demo.launch(server_name=args.host, server_port=args.port, share=False, max_file_size="20mb",
+                theme=gr.themes.Soft(primary_hue='teal'), css=CUSTOM_CSS)
