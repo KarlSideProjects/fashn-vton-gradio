@@ -1,6 +1,6 @@
 # FASHN VTON — 操作、環境與驗證
 
-回到 [初學者理論指南](../README.md)。這份文件保留完整操作與實測紀錄。
+回到 [專案首頁](../README.md)或[初學者理論指南](model-learning-guide.md)。這份文件保留完整操作與實測紀錄。
 
 直接採用 [hemil124/virtual-tryon 的 app.py](https://huggingface.co/spaces/hemil124/virtual-tryon/blob/29f4ad42a29af63c71a7bc9e53ea7cd5342694c1/app.py)，
 固定來源 commit `29f4ad42a29af63c71a7bc9e53ea7cd5342694c1`，沿用它的單次生成流程：
@@ -23,7 +23,7 @@ bash scripts/start.sh
 # 自訂連接埠：bash scripts/start.sh --port 7861
 ```
 
-開啟 http://127.0.0.1:7860 。已有 CUDA 環境及權重時，升級介面即可，不必重下載模型：
+開啟 `http://127.0.0.1:7860` 。已有 CUDA 環境及權重時，升級介面即可，不必重下載模型：
 
 ```bash
 uv pip install --python .venv/bin/python -r requirements-ui.txt
