@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "reviewed_at": "2026-09-15",
+  "sources": [
+    {
+      "name": "teach",
+      "repo": "mattpocock/skills",
+      "path": "skills/productivity/teach",
+      "commit": "3cca18b368ae95cdbdebbff572ccafa662551015",
+      "fingerprint": "2d0eb242c39e0b1c80fa46fe5ac7d22c91bce519d955407e1c7f5cb53aa14730",
+      "license_sha": "f1dd2c09108dde1a5f56097cee8461b3ea834499"
+    },
+    {
+      "name": "documentation-writer",
+      "repo": "github/awesome-copilot",
+      "path": "skills/documentation-writer",
+      "commit": "fb4eb04fcbd30de50052b1155d81167393dfb5aa",
+      "fingerprint": "d490f3a64da5499783c93864a922cf343aafdccf51f40a8c4e9c40cff7f110fa",
+      "license_sha": "89bc5e962c9944cdb050887062afdaaf89be504a"
+    },
+    {
+      "name": "mermaid-diagrams",
+      "repo": "softaworks/agent-toolkit",
+      "path": "skills/mermaid-diagrams",
+      "commit": "3027f20f3181758385a1bb8c022d4041dfb4de84",
+      "fingerprint": "ba911428672be8d699cdd2d37698c0d2d7a90f7b9f46646e914a59edbfab4ca3",
+      "license_sha": "fc473440ee9ae27aa3d774bcd3888496ef0fad2d"
+    }
+  ]
+}
