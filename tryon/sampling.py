@@ -1,6 +1,7 @@
 """FASHN sampler with CPU FP32 initial noise for the GPU execution mode.
 
-Adapted from FASHN AI (Copyright 2025), Apache-2.0; see LICENSE and NOTICE.
+Adapted from FASHN AI (Copyright 2025), Apache-2.0; see licenses/Apache-2.0.txt and NOTICE.
+Local modifications: see LICENSE and LICENSING.md; upstream rights are unchanged.
 Source: fashn-vton-1.5, commit 7c0f10af3f91ad4048fe9729c470a13ef905d25a.
 Only initial-noise placement/dtype differs; the Euler/CFG equations are unchanged.
 This local override does not edit site-packages or globally patch torch.randn.
