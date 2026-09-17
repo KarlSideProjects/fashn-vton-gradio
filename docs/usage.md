@@ -145,5 +145,5 @@ Shell 語法檢查通過。新版同照片真實 CPU 生成完成，未套用任
 ## 授權
 
 本機入口改編自 hemil124 的 Space；FASHN VTON 1.5 來自 FASHN AI。
-保留 Apache-2.0 [LICENSE](../LICENSE) 與來源／修改說明 [NOTICE](../NOTICE)。
+本地修改／原創依 [非商用研究授權](../LICENSE)，範圍見 [LICENSING.md](../LICENSING.md)。上游保留 [Apache-2.0 原文](../licenses/Apache-2.0.txt) 與來源／修改說明 [NOTICE](../NOTICE)。
 此專案與 hemil124、FASHN AI 沒有隸屬或背書關係；各模型與相依套件沿用各自授權。

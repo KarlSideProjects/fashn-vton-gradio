@@ -4,7 +4,7 @@ app.py is adapted from:
 https://huggingface.co/spaces/hemil124/virtual-tryon
 Space revision: 29f4ad42a29af63c71a7bc9e53ea7cd5342694c1
 Source app.py: https://huggingface.co/spaces/hemil124/virtual-tryon/blob/29f4ad42a29af63c71a7bc9e53ea7cd5342694c1/app.py
-The Space includes Apache License 2.0 (included in LICENSE).
+The Space includes Apache License 2.0 (included in licenses/Apache-2.0.txt).
 Local modifications: project-local offline cache and explicit weight setup,
 loopback launch/port options, input/resource limits, existing WEBP examples,
 and corrected timing/quality hints plus omission of unused imports.
@@ -19,9 +19,13 @@ This application uses FASHN VTON v1.5 by FASHN AI.
 Upstream: https://github.com/fashn-AI/fashn-vton-1.5
 Revision: 7c0f10af3f91ad4048fe9729c470a13ef905d25a
 Upstream copyright: Copyright 2025 FASHN AI
-Upstream license: Apache License 2.0 (included in LICENSE).
+Upstream license: Apache License 2.0 (included in licenses/Apache-2.0.txt).
 
 examples/model.webp and examples/garment.webp are copied unmodified from
 the upstream repository's examples/data at that revision.
 This application is independent and is not endorsed by hemil124 or FASHN AI.
 Third-party packages and model weights retain their respective licenses.
+
+Local original additions and modifications in versions carrying the custom
+LICENSE are offered under that LICENSE; see LICENSING.md for scope. This does
+not change the Apache-2.0 grant for upstream material or revoke existing grants.

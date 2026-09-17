@@ -1,4 +1,5 @@
-"""Adapted from hemil124/virtual-tryon, Apache-2.0.
+"""Adapted from hemil124/virtual-tryon; upstream: licenses/Apache-2.0.txt.
+Local modifications: LICENSE and LICENSING.md; existing grants remain valid.
 Source commit: 29f4ad42a29af63c71a7bc9e53ea7cd5342694c1 (see NOTICE).
 Local changes: offline cache/setup, input limits, local examples and launch options.
 CPU retains the Space's sampling; GPU uses CPU-initialized noise (see NOTICE).

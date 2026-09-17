@@ -1,5 +1,7 @@
 # fashn-vton-gradio｜本機 AI 試衣間
 
+> **授權：僅限非商業用途，歡迎研究、教學與交流。** 完整條款見 [LICENSE](LICENSE)，適用範圍與第三方例外見 [授權規範](LICENSING.md)。
+
 上傳人物照與商品照，在自己的電腦生成換裝預覽；同一個 Gradio 介面可選 CPU 或 NVIDIA GPU。適合想試用虛擬試穿、比較生成條件，或理解 AI 影像限制的人。
 
 本專案把 **FASHN VTON 1.5** 整合為可安裝、可檢查的本機應用，保留單次原始生成結果；另外整理了一個「相同 Seed，為何裙子會變成褲子？」的控制變因案例與初學者教材。模型由 FASHN AI 提供，本地工作聚焦於介面、環境、裝置切換、取樣調整與驗證。
@@ -91,4 +93,4 @@ flowchart LR
 
 本地入口改編自 [hemil124/virtual-tryon Space 的固定版本](https://huggingface.co/spaces/hemil124/virtual-tryon/tree/29f4ad42a29af63c71a7bc9e53ea7cd5342694c1)，模型及推論程式來自 [FASHN AI 的固定版本](https://github.com/fashn-AI/fashn-vton-1.5/tree/7c0f10af3f91ad4048fe9729c470a13ef905d25a)。本 repo 的成果是本機整合、裝置與資源管理、取樣差異診斷及教材整理，不能將上游架構、訓練資料或模型權重列為本地原創。
 
-保留 Apache-2.0 [LICENSE](LICENSE)、[NOTICE](NOTICE) 及[範例來源](examples/SOURCES.md)。[官方模型卡](https://huggingface.co/fashn-ai/fashn-vton-1.5)列有模型及 DWPose／YOLOX／FASHN Human Parser 的來源與授權；第三方套件、模型與照片需依各自條件使用。本專案與 hemil124、FASHN AI 無隸屬或背書關係。
+本地原創／修改採 [非商用研究授權](LICENSE)；上游部分保留 [Apache-2.0 原文](licenses/Apache-2.0.txt)、[NOTICE](NOTICE) 及[範例來源](examples/SOURCES.md)，範圍與舊版權利見 [LICENSING.md](LICENSING.md)。[官方模型卡](https://huggingface.co/fashn-ai/fashn-vton-1.5)列有模型及 DWPose／YOLOX／FASHN Human Parser 的來源與授權；第三方套件、模型與照片需依各自條件使用。本專案與 hemil124、FASHN AI 無隸屬或背書關係。
