@@ -1,29 +1,34 @@
 # fashn-vton-gradio｜本機 AI 試衣間
 
-> **授權：僅限非商業用途，歡迎研究、教學與交流。** 完整條款見 [LICENSE](LICENSE)，適用範圍與第三方例外見 [授權規範](LICENSING.md)。
+> **僅限非商業用途。** 歡迎用於研究、教學與交流；完整條款與適用範圍見 [LICENSE](LICENSE) 及 [授權規範](LICENSING.md)。
 
-上傳人物照與商品照，在自己的電腦生成換裝預覽；同一個 Gradio 介面可選 CPU 或 NVIDIA GPU。適合想試用虛擬試穿、比較生成條件，或理解 AI 影像限制的人。
+有一張人物照與一張衣服照，想先看穿搭風格可能長什麼樣子嗎？這個專案讓你在自己的 Linux 電腦上開啟網頁介面，產生一張 AI 換裝預覽。它適合試用虛擬試穿、比較生成條件，或作為理解生成式影像限制的起點；它不是量身工具，也不保證真實衣料、尺寸或合身程度。
 
-本專案把 **FASHN VTON 1.5** 整合為可安裝、可檢查的本機應用，保留單次原始生成結果；另外整理了一個「相同 Seed，為何裙子會變成褲子？」的控制變因案例與初學者教材。模型由 FASHN AI 提供，本地工作聚焦於介面、環境、裝置切換、取樣調整與驗證。
-
-**現在可操作**：[安裝並試穿](#第一次換裝)；**不裝模型也可閱讀**：[控制變因報告](docs/space-controlled-diagnosis.md)及[生成模型圖解與小實驗](docs/model-learning-guide.md)。Repository 附兩張官方輸入範例；私人生成圖、操作截圖與實驗原始檔未隨 Git 提供。
-
-## 從兩張照片到一張預覽
+本地程式把 **FASHN VTON 1.5** 包成可安裝的 Gradio 介面。按下 **Try On** 時，模型會參考人物照、衣服照和服裝類別，生成一張新的圖片；不是把衣服直接貼到原照上。
 
 ![人物輸入範例，來自 FASHN 官方 repository](examples/model.webp)
 
-搭配[商品輸入範例](examples/garment.webp)即可進行第一次試穿；以上是輸入素材，不是本專案產生的結果。[圖片來源及使用界線](examples/SOURCES.md)保留上游版本與檔案雜湊。
+這張人物照與[商品輸入範例](examples/garment.webp)是官方未修改的輸入素材，不是本專案產生的結果；出處、使用界線與檔案雜湊見 [範例來源](examples/SOURCES.md)。
 
-- 支援上衣 `tops`、下身 `bottoms`、連身 `one-pieces`，以及模特兒穿著 `model`／平拍商品 `flat-lay`。
-- 每次產生一張圖，可調 Steps、CFG、Seed 與 segmentation-free，直接顯示及下載模型輸出。
-- CPU／GPU 在同一介面切換；同時只保留一份 pipeline，載入與推論互斥。GPU 不可用時明確報錯，需由使用者選擇 CPU。
-- 安裝階段下載權重並記錄版本與雜湊；生成階段使用本機快取。預設只監聽 `127.0.0.1`，不開公開分享。
+## 今天可以做什麼
 
-結果是穿搭風格預覽，無法量測合身程度或模擬真實布料受力；手指、臉、Logo、背景及未指定更換的衣物仍可能改變。目前沒有局部修補、候選挑選或自動重試功能。
+- 上傳人物照與商品照，選擇上衣、下身或連身衣，以及商品是模特兒穿著或平拍；每次產生一張可下載的預覽圖。
+- 在同一介面選 CPU 或 NVIDIA GPU。GPU 不可用時，程式會明確說明，並由你決定是否改選 CPU。
+- 用同一組輸入比較不同生成結果，或先閱讀不需要程式與微積分基礎的 [生成模型圖解與小實驗](docs/model-learning-guide.md)。
 
-## 第一次換裝
+本專案的本地貢獻是介面、安裝流程、裝置切換、取樣條件與驗證文件；模型與推論程式仍來自 FASHN AI，沒有重新訓練或修改模型權重。
 
-需要 Linux、Python 3.12、Git 與 [uv](https://docs.astral.sh/uv/)。首次安裝需連網下載套件與模型；GPU 路徑還需可用的 NVIDIA 驅動及足夠 VRAM，CPU 仍需數 GiB RAM，生成時間可能很長。完整環境與疑難排解見[操作手冊](docs/usage.md)。
+## 目前結果與限制
+
+目前可執行的流程是「兩張照片 → 一張原始換裝圖」，沒有候選挑選、自動重試或局部修補。程式會檢查圖片、基本設定與模型權重；現有測試和 smoke 檢查確認這些行為，**不代表真實照片的生成品質已被普遍驗證**。完整檢查範圍與歷史結果見 [操作與驗證紀錄](docs/usage.md)。
+
+一份固定人物／商品照與設定的控制變因紀錄顯示：在該案例中，改變生成時的隨機起點後，花裙得以保留；只改運算精度則沒有解決問題。這是可追查的單案例診斷，不是任何做法都會讓所有服裝改善的證明。方法、數值與邊界見 [控制變因報告](docs/space-controlled-diagnosis.md)。
+
+請只上傳自己有權使用的照片，並人工檢查成品。手指、臉、背景、Logo、未指定更換的衣物與遮擋關係都可能改變；不要把結果用來判斷尺寸、合身度或商品真實外觀。照片、權重、快取與輸出會留在本機專案資料夾，請勿加入 Git 或公開上傳。
+
+## 開始試穿
+
+需要 Linux、Python 3.12、Git 與 [uv](https://docs.astral.sh/uv/)。第一次安裝會下載套件與模型，需要網路和數 GiB 的可用 RAM；若用 GPU，還需要可用的 NVIDIA 驅動與足夠的 VRAM。CPU 能執行，但可能需要很久；完整環境需求與疑難排解在 [操作手冊](docs/usage.md)。
 
 ```bash
 git clone https://github.com/KarlSideProjects/fashn-vton-gradio.git
@@ -32,65 +37,21 @@ bash scripts/setup.sh cuda
 bash scripts/start.sh
 ```
 
-只有 CPU 時，將安裝指令改為 `bash scripts/setup.sh cpu`；啟動後也要在介面把預設 GPU 改選 **CPU**。開啟 `http://127.0.0.1:7860`，選取兩張範例、`tops`／`model`，再按 **Try On**。
+只有 CPU 時，把安裝指令改成 `bash scripts/setup.sh cpu`。接著開啟 `http://127.0.0.1:7860`，先把「推論裝置」改為 **CPU**，選擇兩張範例、`tops` 與 `model`，再按 **Try On**。第一次使用會先載入模型；預設只監聽自己的電腦，不開公開分享。可用 `bash scripts/start.sh --port 7861` 改用其他連接埠。
 
-第一張維持 **30 steps、CFG 1.5、Seed 42、segmentation-free 開啟**。預期結果是可下載的換裝圖與含載入時間的狀態；第一次需額外載入模型。可用 `bash scripts/start.sh --port 7861` 更換連接埠。
+第一次請先保留介面的進階預設設定，把它當作可比較的起點，而不是品質保證。文件記錄的一次同組照片執行，在 RTX 4060 Ti 約 47 秒、Ryzen 9 7945HX CPU 約 23 分 32 秒（均含載入）；這不是跨硬體基準或速度承諾。
 
-[既有操作紀錄](docs/usage.md)記載同一組照片的單次含載入耗時：RTX 4060 Ti 約 47 秒，Ryzen 9 7945HX CPU 約 23 分 32 秒。這是歷史單例，非本輪重測、跨硬體基準或速度保證。
+## 想深入一點
 
-## 為什麼保留簡單的單次生成？
+- [操作手冊](docs/usage.md)：完整安裝、參數、測試與疑難排解。
+- [控制變因報告](docs/space-controlled-diagnosis.md)：為何同一 Seed 在不同條件下可能得到不同成品。
+- [初學者理論指南](docs/model-learning-guide.md)：從影像數值、噪聲、Seed 到小實驗的白話說明。
+- [理論來源筆記](docs/fashn-theory-sources.md)：區分公開模型資料與教學用簡化說明。
 
-```mermaid
-flowchart LR
-    I["人物照＋商品照＋類別／參數"] --> V["輸入檢查與裝置選擇"]
-    V --> P["FASHN 前處理與生成"]
-    N["CPU FP32 初始噪聲"] --> P
-    P --> O["一張原始換裝圖＋狀態"]
-```
+## 探索提案（不是既有承諾）
 
-[app.py](app.py) 負責介面、輸入限制及 pipeline 管理。CPU 使用上游 `TryOnPipeline`；GPU 使用 [CpuNoisePipeline](tryon/sampling.py)，先在 CPU 產生 FP32 初始噪聲，再轉到 GPU 的推論格式，其餘沿用固定版本的 Euler／CFG 取樣流程。沒有重新訓練或修改模型權重；相同 Seed 也不保證跨裝置逐像素一致。
+給想判斷初始噪聲做法是否能跨案例成立的研究者或本機整合者：以取得公開或明確同意使用的多組人物／服裝照片及多個 Seed，沿用目前的控制變因方法，產出版本化的條件、結果表與人工檢核紀錄。完成的可觀察標準是每個比較都有相同基準條件、模型／權重版本與明確的品質檢核欄位；代價是準備可合法使用的資料並逐筆檢視。在此之前，不把單案例結果延伸為通用品質宣稱。
 
-這個選擇源自[2026-09-15 控制變因紀錄](docs/space-controlled-diagnosis.md)：同一組人物／商品照、同一個 Seed，在保留條件圖與 GPU 運算時，改變初始噪聲來源便改變了花裙是否保留；保留原噪聲、只改 FP32 運算則未解決該案例。
+## 來源、歸屬與授權
 
-這提供了可追查的診斷線索，不能證明 CPU 噪聲普遍較好。先前的手部／臉部貼回及局部重繪增加操作與失敗點，現行版本已移除；相關設計與驗證文件屬歷史紀錄。原始私人圖片和實驗 JSON 不在 repo，外部讀者可檢視方法與程式，無法僅靠 clone 重算該案例的全部數值。
-
-### 環境也屬於重現條件
-
-[requirements.txt](requirements.txt) 固定 FASHN 推論程式 commit 與主要套件版本；[download_models.py](scripts/download_models.py) 在首次下載時取得模型 revision，後續沿用本機 manifest 並記錄 SHA-256。因此固定程式版本不等於所有新安裝都使用同一版權重，分享實驗時也應記錄 `weights/manifest.json` 的版本資訊。
-
-[config.py](tryon/config.py) 將模型、快取與暫存留在專案資料夾。這方便檢查與清理，但不等於不落地儲存照片；私人圖片、權重及 `outputs/` 不應加入 Git。
-
-## 如何判斷驗證到哪裡？
-
-| 證據 | 能確認的範圍 | 不能推論的事項 |
-| --- | --- | --- |
-| [App 測試](tests/test_app.py) | 參數檢查、一次推論、原圖回傳、裝置快取與互斥；模型邊界使用替身 | 真實照片生成品質 |
-| [取樣測試](tests/test_sampling.py) | 有相應依賴／硬體時，比較上游 CPU 公式與多 Seed 噪聲轉換 | 多人物、多服裝品質改善 |
-| [HTTP／佇列 smoke](scripts/smoke_ui.py) | 真實 Gradio 啟動、API、缺圖拒絕 | 瀏覽器上傳下載與 GPU 推論 |
-| [CPU CI](.github/workflows/cpu-checks.yml) | UI 依賴環境下的單元、HTTP、Python／Shell 語法檢查 | GPU 推論；數值測試可能略過 |
-| [歷史控制實驗](docs/space-controlled-diagnosis.md) | 單案例的噪聲、精度、遮罩比較方法與紀錄 | 未附私人原始檔的獨立重算、通用品質保證 |
-
-2026-09-16 本輪在隔離的 Python 3.12／UI 依賴環境執行：11 項測試中 9 項通過、2 項因未安裝 Torch／FASHN 略過，HTTP／佇列 smoke 通過；未執行真實模型推論。
-
-安裝完整環境後可執行：
-
-```bash
-.venv/bin/python -m unittest discover -s tests -v
-.venv/bin/python -m scripts.smoke_ui --port 7862
-.venv/bin/python -m scripts.check
-.venv/bin/python -m scripts.smoke_inference --device cuda
-```
-
-最後一項才真正生成，CPU 可改為 `--device cpu`；會把 PNG 與 JSON 放在 `outputs/space-smoke/<id>/`。`check` 通過只代表環境／權重檢查，生成完成仍需人工檢視衣服一致性、人物保留、遮擋合理性和非目標區域。
-
-## 從試用到 AI 素養
-
-[初學者指南](docs/model-learning-guide.md)保留影像數值、訓練／推論、Noise／Seed、Flow Matching、Transformer、CFG 的圖解、自我檢核答案，以及一次只改一項的四個小實驗。
-
-可以固定照片、模型版本與裝置，只改 Seed、Steps 或 CFG，先寫預測，再比較衣服、手部與背景。這能練習控制變因、分開判斷程式成功與成品品質，也能討論單例證據的推論界線。教材與活動設計已在 repo；尚無學習者樣本、課堂實施或教學成效證據。[理論來源筆記](docs/fashn-theory-sources.md)區分公開模型設計與教學用簡化公式。
-
-## 來源、貢獻範圍與授權
-
-本地入口改編自 [hemil124/virtual-tryon Space 的固定版本](https://huggingface.co/spaces/hemil124/virtual-tryon/tree/29f4ad42a29af63c71a7bc9e53ea7cd5342694c1)，模型及推論程式來自 [FASHN AI 的固定版本](https://github.com/fashn-AI/fashn-vton-1.5/tree/7c0f10af3f91ad4048fe9729c470a13ef905d25a)。本 repo 的成果是本機整合、裝置與資源管理、取樣差異診斷及教材整理，不能將上游架構、訓練資料或模型權重列為本地原創。
-
-本地原創／修改採 [非商用研究授權](LICENSE)；上游部分保留 [Apache-2.0 原文](licenses/Apache-2.0.txt)、[NOTICE](NOTICE) 及[範例來源](examples/SOURCES.md)，範圍與舊版權利見 [LICENSING.md](LICENSING.md)。[官方模型卡](https://huggingface.co/fashn-ai/fashn-vton-1.5)列有模型及 DWPose／YOLOX／FASHN Human Parser 的來源與授權；第三方套件、模型與照片需依各自條件使用。本專案與 hemil124、FASHN AI 無隸屬或背書關係。
+本地入口改編自固定版本的 [hemil124/virtual-tryon Space](https://huggingface.co/spaces/hemil124/virtual-tryon/tree/29f4ad42a29af63c71a7bc9e53ea7cd5342694c1)，模型與推論程式來自固定版本的 [FASHN AI FASHN VTON 1.5](https://github.com/fashn-AI/fashn-vton-1.5/tree/7c0f10af3f91ad4048fe9729c470a13ef905d25a)。本地新增／修改內容採[非商用研究授權](LICENSE)；上游 Apache-2.0、[NOTICE](NOTICE) 與[範例來源](examples/SOURCES.md)仍有效，模型、第三方套件、照片、肖像與商標各依其原有條件使用。本專案與 hemil124、FASHN AI 沒有隸屬或背書關係。
